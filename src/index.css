@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- DEFINICIÓN DE FUENTES (Infra) --- */
+
+/* Peso 100: Thin */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraThin.otf') format('opentype');
+  font-weight: 100;
+  font-style: normal;
+}
+
+/* Peso 200: ExtraLight */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraExtraLight.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+}
+
+/* Peso 300: Light */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraLight.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+/* Peso 400: Regular (Normal) */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraRegular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Peso 500: Medium */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraMedium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+/* Peso 600: SemiBold */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraSemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Peso 700: Bold */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* Peso 800: ExtraBold */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraExtraBold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+/* Peso 900: Black */
+@font-face {
+  font-family: 'Infra';
+  src: url('./assets/fonts/InfraBlack.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+}
+
+/* --- ESTILOS GLOBALES --- */
+body {
+  font-family: 'Infra', sans-serif; /* Forzar Infra en todo el body */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
