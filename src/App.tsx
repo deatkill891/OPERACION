@@ -1,35 +1,33 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './layouts/MainLayout';
 import { DashboardPage } from './modules/Dashboard/DashboardPage';
+import { ThemeProvider } from '@mui/material/styles';
+import { appTheme } from './core/ui/theme';
 
 // 1. IMPORTAR EL NUEVO COMPONENTE MGC
 import { MgcDashboard } from './modules/mgc/pages/MgcDashboard';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Layout Principal que envuelve todo */}
-        <Route element={<MainLayout />}>
-          
-          {/* Ruta raíz = Dashboard */}
-          <Route path="/" element={<DashboardPage />} />
-          
-          {/* 2. NUEVA RUTA REGISTRADA AQUÍ */}
-          <Route path="/mgc" element={<MgcDashboard />} />
+    <ThemeProvider theme={appTheme}> 
+      <BrowserRouter>
+        <Routes>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<DashboardPage />} />
+            
+            {/* Aquí es donde vive tu nuevo módulo */}
+            <Route path="/mgc" element={<MgcDashboard />} />
 
-          {/* Otros módulos */}
-          <Route path="/ibi" element={<div className="p-8">Módulo IBI (Próximamente)</div>} />
-          <Route path="/aceria" element={<div className="p-8">Módulo Acería (Próximamente)</div>} />
-          <Route path="/mantenimiento" element={<div className="p-8">Módulo Mantenimiento (Próximamente)</div>} />
-          <Route path="/calidad" element={<div className="p-8">Módulo Calidad (Próximamente)</div>} />
+            <Route path="/ibi" element={<div className="p-8">Módulo IBI</div>} />
+            <Route path="/aceria" element={<div className="p-8">Módulo Acería</div>} />
+            <Route path="/mantenimiento" element={<div className="p-8">Módulo Mantenimiento</div>} />
+            <Route path="/calidad" element={<div className="p-8">Módulo Calidad</div>} />
 
-          {/* Redirección por defecto */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-          
-        </Route>
-      </Routes>
-    </BrowserRouter>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

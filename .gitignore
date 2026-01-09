@@ -35,3 +35,7 @@ $RECYCLE.BIN/
 
 # --- Otros ---
 coverage/
+
+# --- SonarQube ---
+.scannerwork/
+sonar-project.properties
