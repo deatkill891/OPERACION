@@ -1,17 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Paper, Grid, 
-  TextField, MenuItem, Button, 
+  Paper, Grid, TextField, MenuItem, Button, 
   Table, TableBody, TableCell, TableHead, TableRow, 
-  IconButton, Typography, Divider, Box, RadioGroup, FormControlLabel, Radio, Chip
+  IconButton, Typography, Box, RadioGroup, FormControlLabel, Radio, 
+  CircularProgress, InputAdornment,
+  Dialog, DialogTitle, DialogContent, DialogActions 
 } from '@mui/material';
 import { Plus, Trash2, Save, UserPlus } from 'lucide-react';
-import type { ReporteDiario, Pendiente } from '../types';
+
+import type { ReporteDiario, Pendiente, TecnicoCatalogo } from '../types';
+import { aceriaService } from '../services/aceriaService';
+
+// Tipo simple para el turno cargado desde BD
+interface TurnoCatalogo {
+  id: number;
+  nombre: string;
+}
 
 export const CapturaForm = () => {
-  // --- ESTADO INICIAL ---
+  // --- ESTADOS DE UI ---
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Catálogos cargados desde Base de Datos
+  const [tecnicosDB, setTecnicosDB] = useState<TecnicoCatalogo[]>([]);
+  const [turnosDB, setTurnosDB] = useState<TurnoCatalogo[]>([]);
+  
+  // Estados para el Modal de Nuevo Técnico
+  const [showNewTechModal, setShowNewTechModal] = useState(false);
+  const [newTechName, setNewTechName] = useState('');
+  const [isSavingTech, setIsSavingTech] = useState(false);
+
+  // --- ESTADO DEL FORMULARIO ---
   const [formData, setFormData] = useState<ReporteDiario>({
-    tecnico: '', turno: '', fecha: new Date().toISOString().split('T')[0],
+    tecnico: '', 
+    turno: '', 
+    fecha: new Date().toISOString().split('T')[0],
     horno: 'HF1',
     pendientes: [],
     platicaSeguridad: { tema: '', impartidaPor: '', puntos: '' },
@@ -25,66 +48,94 @@ export const CapturaForm = () => {
     participacion: { ideasA2: [], observaciones: [] }
   });
 
-  // Estados locales para inputs temporales
-  const [tempIdeaName, setTempIdeaName] = useState('');
-  const [tempObsName, setTempObsName] = useState('');
+  // --- EFECTO: CARGAR CATÁLOGOS ---
+  const fetchCatalogos = async () => {
+      // 1. Cargar Técnicos (depende del horno seleccionado)
+      const dataTecnicos = await aceriaService.getTecnicosPorArea(formData.horno);
+      setTecnicosDB(dataTecnicos);
 
-  // --- HANDLERS ---
-  const addPendiente = () => {
-    const newPendiente: Pendiente = {
-      id: crypto.randomUUID(), descripcion: '', fDeteccion: '', 
-      responsable: 'Operación', severidad: 'Baja', fCompromiso: '', 
-      comentarios: '', estatus: 'Pendiente'
-    };
-    setFormData(prev => ({ ...prev, pendientes: [...prev.pendientes, newPendiente] }));
+      // 2. Cargar Turnos (solo si no se han cargado aún)
+      if (turnosDB.length === 0) {
+          const dataTurnos = await aceriaService.getTurnos();
+          setTurnosDB(dataTurnos);
+      }
   };
 
+  useEffect(() => {
+      // Limpiamos el técnico al cambiar de horno para evitar inconsistencias
+      setFormData(prev => ({ ...prev, tecnico: '' }));
+      fetchCatalogos();
+  }, [formData.horno]);
+
+  // --- HANDLER: GUARDAR NUEVO TÉCNICO (MODAL) ---
+  const handleSaveNewTech = async () => {
+      if (!newTechName.trim()) return;
+      
+      setIsSavingTech(true);
+      const nuevoTecnico = await aceriaService.createTecnico(newTechName, formData.horno);
+      setIsSavingTech(false);
+
+      if (nuevoTecnico) {
+          // Recargamos solo la lista de técnicos
+          const dataTecnicos = await aceriaService.getTecnicosPorArea(formData.horno);
+          setTecnicosDB(dataTecnicos);
+          
+          // Seleccionamos al nuevo técnico automáticamente
+          setFormData(prev => ({ ...prev, tecnico: nuevoTecnico.nombre_completo }));
+          
+          // Cerramos modal
+          setShowNewTechModal(false);
+          setNewTechName('');
+          alert(`✅ Técnico "${newTechName}" registrado en ${formData.horno}`);
+      } else {
+          alert("❌ Error al registrar técnico. Intente de nuevo.");
+      }
+  };
+
+  // --- HANDLERS FORMULARIO ---
+  const addPendiente = () => {
+    const newPendiente: Pendiente = { id: crypto.randomUUID(), descripcion: '', fDeteccion: '', responsable: 'Operación', severidad: 'Baja', fCompromiso: '', comentarios: '', estatus: 'Pendiente' };
+    setFormData(prev => ({ ...prev, pendientes: [...prev.pendientes, newPendiente] }));
+  };
   const updatePendiente = (index: number, field: keyof Pendiente, value: unknown) => {
     const updated = [...formData.pendientes];
     updated[index] = { ...updated[index], [field]: value as any };
     setFormData(prev => ({ ...prev, pendientes: updated }));
   };
-
-  const addParticipante = (type: 'ideasA2' | 'observaciones', name: string) => {
-    if (!name.trim()) return;
-    
-    // Generamos un ID único para el participante
-    const nuevoParticipante = { id: crypto.randomUUID(), nombre: name };
-
-    setFormData(prev => ({
-      ...prev,
-      participacion: {
-        ...prev.participacion,
-        [type]: [...prev.participacion[type], nuevoParticipante]
-      }
-    }));
-
-    if (type === 'ideasA2') setTempIdeaName('');
-    else setTempObsName('');
+  const removePendiente = (index: number) => {
+    setFormData(prev => ({ ...prev, pendientes: prev.pendientes.filter((_, i) => i !== index) }));
   };
-
+  const addParticipante = (type: 'ideasA2' | 'observaciones') => {
+    setFormData(prev => ({ ...prev, participacion: { ...prev.participacion, [type]: [...prev.participacion[type], { id: crypto.randomUUID(), nombre: '' }] } }));
+  };
+  const updateParticipante = (type: 'ideasA2' | 'observaciones', id: string, value: string) => {
+    setFormData(prev => ({ ...prev, participacion: { ...prev.participacion, [type]: prev.participacion[type].map(p => p.id === id ? { ...p, nombre: value } : p) } }));
+  };
   const removeParticipante = (type: 'ideasA2' | 'observaciones', idToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      participacion: {
-        ...prev.participacion,
-        [type]: prev.participacion[type].filter(p => p.id !== idToRemove)
-      }
-    }));
+    setFormData(prev => ({ ...prev, participacion: { ...prev.participacion, [type]: prev.participacion[type].filter(p => p.id !== idToRemove) } }));
   };
 
-  // Handler para el Enter en los inputs de participación
-  const handleKeyDownParticipante = (e: React.KeyboardEvent, type: 'ideasA2' | 'observaciones', value: string) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addParticipante(type, value);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- SUBMIT ---
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Enviando reporte completo:", formData);
-    alert("Reporte guardado. Verifica la consola para ver el JSON completo.");
+    if (!formData.tecnico || !formData.turno) { alert("⚠️ Selecciona Técnico y Turno."); return; }
+    
+    setIsSaving(true);
+    try {
+        // CORRECCIÓN SONARLINT: Eliminado "as any" innecesario
+        const result = await aceriaService.saveReporte(formData);
+        
+        if (result?.status === 'SUCCESS') {
+            alert(`✅ Reporte guardado. ID: ${result.reporte_id}`);
+            // Opcional: Limpiar formulario aquí
+        } else {
+            alert("⚠️ Error: " + (result?.message || 'Desconocido'));
+        }
+    } catch (e: any) { 
+        alert("❌ Error: " + e.message); 
+    } finally { 
+        setIsSaving(false); 
+    }
   };
 
   return (
@@ -94,36 +145,55 @@ export const CapturaForm = () => {
       <Paper className="p-6 border-l-4 border-indigo-500 bg-indigo-50/10">
         <Typography variant="h6" className="mb-4 text-indigo-800 font-bold">1. Equipo del Día</Typography>
         <Grid container spacing={3}>
+          
           <Grid size={{ xs: 12, md: 3 }}>
              <TextField select fullWidth label="Horno" value={formData.horno} onChange={e => setFormData({...formData, horno: e.target.value as any})}>
                 <MenuItem value="HF1">Horno Fusión 1</MenuItem>
                 <MenuItem value="HF2">Horno Fusión 2</MenuItem>
              </TextField>
           </Grid>
+
           <Grid size={{ xs: 12, md: 3 }}>
-            <TextField fullWidth label="Técnico" value={formData.tecnico} onChange={e => setFormData({...formData, tecnico: e.target.value})} />
+            <Box display="flex" gap={1}>
+                <TextField 
+                    select fullWidth label="Técnico" 
+                    value={formData.tecnico} 
+                    onChange={e => setFormData({...formData, tecnico: e.target.value})}
+                    disabled={tecnicosDB.length === 0}
+                >
+                    {tecnicosDB.map((t) => (
+                        <MenuItem key={t.id} value={t.nombre_completo}>{t.nombre_completo}</MenuItem>
+                    ))}
+                    {tecnicosDB.length === 0 && <MenuItem disabled>Cargando...</MenuItem>}
+                </TextField>
+                <Button variant="contained" color="primary" sx={{ minWidth: '50px', height: '56px' }} onClick={() => setShowNewTechModal(true)} title="Nuevo Técnico">
+                    <Plus />
+                </Button>
+            </Box>
           </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <TextField select fullWidth label="Turno" value={formData.turno} onChange={e => setFormData({...formData, turno: e.target.value})}>
-                <MenuItem value="A">Turno A</MenuItem>
-                <MenuItem value="B">Turno B</MenuItem>
-                <MenuItem value="C">Turno C</MenuItem>
-            </TextField>
-          </Grid>
+
+          {/* SELECTOR DE TURNO DINÁMICO */}
           <Grid size={{ xs: 12, md: 3 }}>
             <TextField 
-                type="date" 
-                fullWidth 
-                label="Fecha" 
-                slotProps={{ inputLabel: { shrink: true } }} 
-                value={formData.fecha} 
-                onChange={e => setFormData({...formData, fecha: e.target.value})} 
-            />
+                select fullWidth label="Turno" 
+                value={formData.turno} 
+                onChange={e => setFormData({...formData, turno: e.target.value})}
+                disabled={turnosDB.length === 0}
+            >
+                {turnosDB.map((t) => (
+                    <MenuItem key={t.id} value={t.nombre}>{t.nombre}</MenuItem>
+                ))}
+                {turnosDB.length === 0 && <MenuItem disabled>Cargando turnos...</MenuItem>}
+            </TextField>
+          </Grid>
+          
+          <Grid size={{ xs: 12, md: 3 }}>
+            <TextField type="date" fullWidth slotProps={{ inputLabel: { shrink: true } }} value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} />
           </Grid>
         </Grid>
       </Paper>
 
-      {/* 2. PENDIENTES DEL DÍA */}
+      {/* 2. PENDIENTES */}
       <Paper className="p-6 border-l-4 border-red-500 bg-red-50/10">
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6" className="text-red-800 font-bold">2. Pendientes del Día</Typography>
@@ -132,155 +202,87 @@ export const CapturaForm = () => {
         <Table size="small">
           <TableHead className="bg-red-50">
             <TableRow>
-              <TableCell width="30%">Pendiente</TableCell>
-              <TableCell width="20%">Responsable</TableCell>
-              <TableCell width="15%">Severidad</TableCell>
-              <TableCell width="30%">Comentarios</TableCell>
-              <TableCell width="5%">Acción</TableCell>
+                <TableCell>Pendiente</TableCell><TableCell>Responsable</TableCell><TableCell>Severidad</TableCell><TableCell>Comentarios</TableCell><TableCell>Acción</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {formData.pendientes.map((p, idx) => (
               <TableRow key={p.id}>
-                <TableCell><TextField fullWidth size="small" placeholder="Descripción" value={p.descripcion} onChange={e => updatePendiente(idx, 'descripcion', e.target.value)} /></TableCell>
+                <TableCell><TextField fullWidth size="small" value={p.descripcion} onChange={e => updatePendiente(idx, 'descripcion', e.target.value)} /></TableCell>
                 <TableCell>
                     <TextField select fullWidth size="small" value={p.responsable} onChange={e => updatePendiente(idx, 'responsable', e.target.value)}>
-                        <MenuItem value="Operación">Operación</MenuItem>
-                        <MenuItem value="Mecánico">Mecánico</MenuItem>
-                        <MenuItem value="Eléctrico">Eléctrico</MenuItem>
-                        <MenuItem value="Servicios">Servicios</MenuItem>
+                        <MenuItem value="Operación">Operación</MenuItem><MenuItem value="Mecánico">Mecánico</MenuItem><MenuItem value="Eléctrico">Eléctrico</MenuItem><MenuItem value="Servicios">Servicios</MenuItem>
                     </TextField>
                 </TableCell>
                 <TableCell>
                     <TextField select fullWidth size="small" value={p.severidad} onChange={e => updatePendiente(idx, 'severidad', e.target.value)}>
-                        <MenuItem value="Alta">Alta</MenuItem>
-                        <MenuItem value="Media">Media</MenuItem>
-                        <MenuItem value="Baja">Baja</MenuItem>
+                        <MenuItem value="Alta">Alta</MenuItem><MenuItem value="Media">Media</MenuItem><MenuItem value="Baja">Baja</MenuItem>
                     </TextField>
                 </TableCell>
-                <TableCell><TextField fullWidth size="small" placeholder="Opcional" value={p.comentarios} onChange={e => updatePendiente(idx, 'comentarios', e.target.value)} /></TableCell>
-                <TableCell>
-                    <IconButton size="small" color="error" onClick={() => {
-                        const upd = formData.pendientes.filter((_, i) => i !== idx);
-                        setFormData({...formData, pendientes: upd});
-                    }}><Trash2 size={16}/></IconButton>
-                </TableCell>
+                <TableCell><TextField fullWidth size="small" value={p.comentarios} onChange={e => updatePendiente(idx, 'comentarios', e.target.value)} /></TableCell>
+                <TableCell><IconButton size="small" color="error" onClick={() => removePendiente(idx)}><Trash2 size={16}/></IconButton></TableCell>
               </TableRow>
             ))}
-            {formData.pendientes.length === 0 && <TableRow><TableCell colSpan={5} align="center" className="text-gray-400 italic">No hay pendientes registrados hoy</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Paper>
 
-      {/* 3. PLÁTICA DE SEGURIDAD */}
+      {/* 3. SEGURIDAD */}
       <Paper className="p-6 border-l-4 border-yellow-500 bg-yellow-50/10">
         <Typography variant="h6" className="mb-4 text-yellow-800 font-bold">3. Plática de Seguridad</Typography>
         <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
-                <TextField fullWidth label="Tema Visto" value={formData.platicaSeguridad.tema} onChange={e => setFormData({...formData, platicaSeguridad: {...formData.platicaSeguridad, tema: e.target.value}})} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-                <TextField fullWidth label="Impartida Por" value={formData.platicaSeguridad.impartidaPor} onChange={e => setFormData({...formData, platicaSeguridad: {...formData.platicaSeguridad, impartidaPor: e.target.value}})} />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-                <TextField fullWidth multiline rows={2} label="Puntos Relevantes" value={formData.platicaSeguridad.puntos} onChange={e => setFormData({...formData, platicaSeguridad: {...formData.platicaSeguridad, puntos: e.target.value}})} />
-            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Tema Visto" value={formData.platicaSeguridad.tema} onChange={e => setFormData({...formData, platicaSeguridad: {...formData.platicaSeguridad, tema: e.target.value}})} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Impartida Por" value={formData.platicaSeguridad.impartidaPor} onChange={e => setFormData({...formData, platicaSeguridad: {...formData.platicaSeguridad, impartidaPor: e.target.value}})} /></Grid>
+            <Grid size={{ xs: 12 }}><TextField fullWidth multiline rows={2} label="Puntos Relevantes" value={formData.platicaSeguridad.puntos} onChange={e => setFormData({...formData, platicaSeguridad: {...formData.platicaSeguridad, puntos: e.target.value}})} /></Grid>
         </Grid>
       </Paper>
 
-      {/* 4. BITÁCORA OPERATIVA */}
+      {/* 4. BITÁCORA */}
       <Paper className="p-6 border-l-4 border-green-500 bg-green-50/10">
         <Typography variant="h6" className="mb-4 text-green-800 font-bold">4. Bitácora Operativa</Typography>
-        
-        {/* Text Areas */}
         <Grid container spacing={3} mb={4}>
-            <Grid size={{ xs: 12, md: 6 }}>
-                <TextField fullWidth multiline rows={4} label="Problemas Turno Anterior" placeholder="Describa problemas o fallas..." 
-                    value={formData.bitacora.problemasTurnoAnterior} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, problemasTurnoAnterior: e.target.value}})} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-                <TextField fullWidth multiline rows={4} label="Bitácora de Turno (Acciones)" placeholder="Acciones operativas clave..." 
-                    value={formData.bitacora.accionesTurno} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, accionesTurno: e.target.value}})} />
-            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth multiline rows={4} label="Problemas Turno Anterior" value={formData.bitacora.problemasTurnoAnterior} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, problemasTurnoAnterior: e.target.value}})} /></Grid>
+            <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth multiline rows={4} label="Bitácora de Turno" value={formData.bitacora.accionesTurno} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, accionesTurno: e.target.value}})} /></Grid>
         </Grid>
-
-        {/* Ollas */}
+        
         <Typography variant="subtitle2" className="mb-2 text-gray-500 font-bold">Control de Ollas</Typography>
         <Grid container spacing={2} className="mb-6">
-            {formData.bitacora.ollas.map((olla, i) => (
+             {formData.bitacora.ollas.map((olla, i) => (
                 <Grid size={{ xs: 6, md: 2.4 }} key={olla.id}>
                     <Paper variant="outlined" className="p-2 bg-white">
-                        <Typography variant="caption" className="block text-center font-bold mb-1">Olla {i + 1}</Typography>
-                        <TextField placeholder="No." size="small" fullWidth margin="dense" value={olla.noOlla} 
-                            onChange={e => {
-                                const newOllas = [...formData.bitacora.ollas];
-                                newOllas[i] = { ...newOllas[i], noOlla: e.target.value };
-                                setFormData({ ...formData, bitacora: { ...formData.bitacora, ollas: newOllas } });
-                            }}
-                        />
-                        <TextField placeholder="Coladas" size="small" fullWidth margin="dense" value={olla.coladas}
-                             onChange={e => {
-                                const newOllas = [...formData.bitacora.ollas];
-                                newOllas[i] = { ...newOllas[i], coladas: e.target.value };
-                                setFormData({ ...formData, bitacora: { ...formData.bitacora, ollas: newOllas } });
-                            }}
-                        />
+                        <Typography variant="caption" className="block text-center font-bold">Olla {i+1}</Typography>
+                        <TextField placeholder="No." size="small" fullWidth margin="dense" value={olla.noOlla} onChange={e => { const no = [...formData.bitacora.ollas]; no[i].noOlla=e.target.value; setFormData({...formData, bitacora: {...formData.bitacora, ollas: no}})}} />
+                        <TextField placeholder="Coladas" size="small" fullWidth margin="dense" value={olla.coladas} onChange={e => { const no = [...formData.bitacora.ollas]; no[i].coladas=e.target.value; setFormData({...formData, bitacora: {...formData.bitacora, ollas: no}})}} />
                     </Paper>
                 </Grid>
-            ))}
+             ))}
         </Grid>
+        
+        <Box sx={{ my: 4, borderBottom: '1px solid #e0e0e0' }} />
 
-        <Divider className="my-4" />
-
-        {/* Bobinas y Lanzas */}
         <Grid container spacing={4}>
-            {/* BOBINAS */}
             <Grid size={{ xs: 12, md: 6 }}>
                 <Paper variant="outlined" className="p-4 bg-white h-full">
                     <Typography variant="subtitle2" className="mb-3 font-bold text-gray-700">Captura de Bobinas</Typography>
-                    
                     <Typography variant="caption" className="font-bold text-gray-500">Bobina 1</Typography>
                     <Grid container spacing={2} mb={2}>
-                        <Grid size={{ xs: 6 }}>
-                            <TextField label="Código" size="small" fullWidth value={formData.bitacora.bobina1.codigo}
-                                onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina1: {...formData.bitacora.bobina1, codigo: e.target.value}}})} />
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                            <TextField label="Colada Entrada" size="small" fullWidth value={formData.bitacora.bobina1.colada}
-                                onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina1: {...formData.bitacora.bobina1, colada: e.target.value}}})} />
-                        </Grid>
+                        <Grid size={{ xs: 6 }}><TextField label="Código" size="small" fullWidth value={formData.bitacora.bobina1.codigo} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina1: {...formData.bitacora.bobina1, codigo: e.target.value}}})} /></Grid>
+                        <Grid size={{ xs: 6 }}><TextField label="Colada Entrada" size="small" fullWidth value={formData.bitacora.bobina1.colada} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina1: {...formData.bitacora.bobina1, colada: e.target.value}}})} /></Grid>
                     </Grid>
-
                     <Typography variant="caption" className="font-bold text-gray-500">Bobina 2</Typography>
                     <Grid container spacing={2}>
-                        <Grid size={{ xs: 6 }}>
-                            <TextField label="Código" size="small" fullWidth value={formData.bitacora.bobina2.codigo}
-                                onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina2: {...formData.bitacora.bobina2, codigo: e.target.value}}})} />
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                            <TextField label="Colada Entrada" size="small" fullWidth value={formData.bitacora.bobina2.colada}
-                                onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina2: {...formData.bitacora.bobina2, colada: e.target.value}}})} />
-                        </Grid>
+                        <Grid size={{ xs: 6 }}><TextField label="Código" size="small" fullWidth value={formData.bitacora.bobina2.codigo} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina2: {...formData.bitacora.bobina2, codigo: e.target.value}}})} /></Grid>
+                        <Grid size={{ xs: 6 }}><TextField label="Colada Entrada" size="small" fullWidth value={formData.bitacora.bobina2.colada} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, bobina2: {...formData.bitacora.bobina2, colada: e.target.value}}})} /></Grid>
                     </Grid>
                 </Paper>
             </Grid>
-
-            {/* LANZAS */}
             <Grid size={{ xs: 12, md: 6 }}>
                  <Paper variant="outlined" className="p-4 bg-white h-full">
                     <Typography variant="subtitle2" className="mb-3 font-bold text-gray-700">Inventario y Lanza Activa</Typography>
-                    
                     <Grid container spacing={2} mb={2}>
-                        <Grid size={{ xs: 6 }}>
-                            <TextField label="Inv. Vesuvius" type="number" size="small" fullWidth value={formData.bitacora.lanzas.invVesuvius} 
-                                onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, lanzas: {...formData.bitacora.lanzas, invVesuvius: +e.target.value}}})} />
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                            <TextField label="Inv. Electronite" type="number" size="small" fullWidth value={formData.bitacora.lanzas.invElectronite}
-                                onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, lanzas: {...formData.bitacora.lanzas, invElectronite: +e.target.value}}})} />
-                        </Grid>
+                        <Grid size={{ xs: 6 }}><TextField label="Inv. Vesuvius" type="number" size="small" fullWidth value={formData.bitacora.lanzas.invVesuvius} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, lanzas: {...formData.bitacora.lanzas, invVesuvius: +e.target.value}}})} /></Grid>
+                        <Grid size={{ xs: 6 }}><TextField label="Inv. Electronite" type="number" size="small" fullWidth value={formData.bitacora.lanzas.invElectronite} onChange={e => setFormData({...formData, bitacora: {...formData.bitacora, lanzas: {...formData.bitacora.lanzas, invElectronite: +e.target.value}}})} /></Grid>
                     </Grid>
-
                     <Typography variant="caption" className="block mb-1 font-bold text-gray-500">Lanza Funcionando</Typography>
                     <RadioGroup row value={formData.bitacora.lanzas.funcionando} onChange={e => setFormData({
                         ...formData, bitacora: { ...formData.bitacora, lanzas: { ...formData.bitacora.lanzas, funcionando: e.target.value as any } }
@@ -293,55 +295,49 @@ export const CapturaForm = () => {
         </Grid>
       </Paper>
 
-      {/* 5. PARTICIPACIÓN Y SEGURIDAD */}
+      {/* 5. PARTICIPACIÓN */}
       <Paper className="p-6 border-l-4 border-blue-500 bg-blue-50/10">
         <Typography variant="h6" className="mb-4 text-blue-800 font-bold">5. Participación y Seguridad</Typography>
-        
         <Grid container spacing={4}>
-            {/* Ideas A2 */}
             <Grid size={{ xs: 12, md: 6 }}>
-                <Paper variant="outlined" className="p-4 bg-white">
-                    <Typography variant="subtitle2" className="mb-2 font-bold text-gray-700">Nombres Colaboradores Idea A2</Typography>
-                    <Box display="flex" gap={1} mb={2}>
-                        <TextField size="small" fullWidth placeholder="Nombre colaborador" value={tempIdeaName} onChange={e => setTempIdeaName(e.target.value)} 
-                            onKeyDown={(e) => handleKeyDownParticipante(e, 'ideasA2', tempIdeaName)}
-                        />
-                        <Button variant="contained" size="small" onClick={() => addParticipante('ideasA2', tempIdeaName)}><Plus/></Button>
+                <Box display="flex" justifyContent="space-between" mb={2}><Typography variant="subtitle2" className="font-bold">Ideas A2</Typography><Button startIcon={<Plus/>} size="small" variant="contained" onClick={() => addParticipante('ideasA2')}>Añadir</Button></Box>
+                {formData.participacion.ideasA2.map(p => (
+                    <Box key={p.id} display="flex" gap={1} mb={1}>
+                        <TextField size="small" fullWidth value={p.nombre} onChange={e => updateParticipante('ideasA2', p.id, e.target.value)} placeholder="Colaborador" slotProps={{ input: { startAdornment: <InputAdornment position="start"><UserPlus size={16} className="text-gray-400"/></InputAdornment> } }} />
+                        <IconButton size="small" color="error" onClick={() => removeParticipante('ideasA2', p.id)}><Trash2 size={16}/></IconButton>
                     </Box>
-                    <Box className="flex flex-wrap gap-2">
-                        {formData.participacion.ideasA2.map((item) => (
-                            <Chip key={item.id} label={item.nombre} onDelete={() => removeParticipante('ideasA2', item.id)} color="primary" variant="outlined" icon={<UserPlus size={14}/>} />
-                        ))}
-                        {formData.participacion.ideasA2.length === 0 && <span className="text-xs text-gray-400">Sin registros</span>}
-                    </Box>
-                </Paper>
+                ))}
             </Grid>
-
-            {/* Observaciones */}
             <Grid size={{ xs: 12, md: 6 }}>
-                <Paper variant="outlined" className="p-4 bg-white">
-                    <Typography variant="subtitle2" className="mb-2 font-bold text-gray-700">Nombres Colaboradores Observación Seguridad</Typography>
-                    <Box display="flex" gap={1} mb={2}>
-                        <TextField size="small" fullWidth placeholder="Nombre colaborador" value={tempObsName} onChange={e => setTempObsName(e.target.value)}
-                            onKeyDown={(e) => handleKeyDownParticipante(e, 'observaciones', tempObsName)}
-                        />
-                        <Button variant="contained" size="small" color="warning" onClick={() => addParticipante('observaciones', tempObsName)}><Plus/></Button>
+                <Box display="flex" justifyContent="space-between" mb={2}><Typography variant="subtitle2" className="font-bold">Observaciones</Typography><Button startIcon={<Plus/>} size="small" variant="contained" color="warning" onClick={() => addParticipante('observaciones')}>Añadir</Button></Box>
+                {formData.participacion.observaciones.map(p => (
+                    <Box key={p.id} display="flex" gap={1} mb={1}>
+                        <TextField size="small" fullWidth value={p.nombre} onChange={e => updateParticipante('observaciones', p.id, e.target.value)} placeholder="Colaborador" slotProps={{ input: { startAdornment: <InputAdornment position="start"><UserPlus size={16} className="text-gray-400"/></InputAdornment> } }} />
+                        <IconButton size="small" color="error" onClick={() => removeParticipante('observaciones', p.id)}><Trash2 size={16}/></IconButton>
                     </Box>
-                    <Box className="flex flex-wrap gap-2">
-                        {formData.participacion.observaciones.map((item) => (
-                            <Chip key={item.id} label={item.nombre} onDelete={() => removeParticipante('observaciones', item.id)} color="warning" variant="outlined" icon={<UserPlus size={14}/>} />
-                        ))}
-                        {formData.participacion.observaciones.length === 0 && <span className="text-xs text-gray-400">Sin registros</span>}
-                    </Box>
-                </Paper>
+                ))}
             </Grid>
         </Grid>
       </Paper>
 
-      {/* BOTÓN FINAL */}
-      <Button variant="contained" size="large" fullWidth startIcon={<Save />} type="submit" sx={{ py: 2, bgcolor: '#002D6F', fontSize: '1.1rem' }}>
-        GUARDAR Y ENVIAR REPORTE
+      <Button variant="contained" size="large" fullWidth startIcon={isSaving ? <CircularProgress size={24} color="inherit"/> : <Save />} type="submit" disabled={isSaving} sx={{ py: 2, bgcolor: '#002D6F', fontSize: '1.1rem' }}>
+        {isSaving ? 'GUARDANDO EN BASE DE DATOS...' : 'GUARDAR Y ENVIAR REPORTE'}
       </Button>
+
+      {/* --- MODAL PARA REGISTRAR NUEVO TÉCNICO --- */}
+      <Dialog open={showNewTechModal} onClose={() => setShowNewTechModal(false)} maxWidth="sm" fullWidth>
+          <DialogTitle className="bg-indigo-50 text-indigo-900 font-bold border-b">Registrar Nuevo Técnico en {formData.horno}</DialogTitle>
+          <DialogContent className="pt-6">
+              <Typography variant="body2" className="mb-4 text-gray-600 mt-4">El técnico se guardará en el catálogo del área <strong>{formData.horno}</strong> y aparecerá disponible inmediatamente.</Typography>
+              <TextField autoFocus fullWidth label="Nombre Completo del Técnico" variant="outlined" value={newTechName} onChange={(e) => setNewTechName(e.target.value)} slotProps={{ input: { startAdornment: <InputAdornment position="start"><UserPlus size={20} className="text-gray-400"/></InputAdornment> } }} />
+          </DialogContent>
+          <DialogActions className="p-4 border-t bg-gray-50">
+              <Button onClick={() => setShowNewTechModal(false)} color="inherit">Cancelar</Button>
+              <Button onClick={handleSaveNewTech} variant="contained" color="primary" disabled={!newTechName.trim() || isSavingTech} startIcon={isSavingTech ? <CircularProgress size={16} color="inherit"/> : <Save size={18}/>}>
+                  {isSavingTech ? 'Guardando...' : 'Registrar Técnico'}
+              </Button>
+          </DialogActions>
+      </Dialog>
 
     </form>
   );

@@ -2,20 +2,19 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './layouts/MainLayout';
 import { DashboardPage } from './modules/Dashboard/DashboardPage';
 
-// --- CAMBIOS FUSIONADOS ---
-// 1. Traemos el tema que configuró tu equipo
+// 1. Tema configurado
 import { ThemeProvider } from '@mui/material/styles';
 import { appTheme } from './core/ui/theme';
 
-// 2. Traemos TU módulo de Acería
+// 2. módulo de Acería
 import { AceriaPage } from './modules/Aceria/pages/AceriaPage';
 
-// 3. Importamos MGC
+// 3. módulo MGC
 import { MgcDashboard } from './modules/mgc/pages/MgcDashboard';
 
 function App() {
   return (
-    // Usamos el ThemeProvider de tu equipo
+    // Usar ThemeProvider
     <ThemeProvider theme={appTheme}> 
       <BrowserRouter>
         <Routes>
