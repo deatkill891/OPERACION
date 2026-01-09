@@ -1,13 +1,12 @@
 import express from 'express';
 import cors from 'cors';
-// Importamos 'sql' también para usar los tipos de datos (NVarChar, etc.)
-import { getConnection, sql } from './config/db'; 
+import { getConnection, sql } from './config/db';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- RUTA DE PRUEBA (La que ya tenías) ---
+// --- RUTA DE PRUEBA ---
 app.get('/api/test-db', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -22,7 +21,7 @@ app.get('/api/test-db', async (req, res) => {
 // RUTAS MÓDULO ACERÍA
 // ==========================================
 
-// 1. Guardar Reporte (Llama al SP Maestro)
+// 1. Guardar Reporte (Llama al Stored Procedure)
 app.post('/api/aceria/reportes', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -33,7 +32,7 @@ app.post('/api/aceria/reportes', async (req, res) => {
             .input('JsonData', sql.NVarChar(sql.MAX), jsonData)
             .execute('sp_Guardar_Reporte_Aceria');
 
-        // El SP devuelve: { status: 'SUCCESS', reporte_id: X }
+        // Retornamos el ID del reporte creado
         res.json(result?.recordset[0]);
     } catch (error: any) {
         console.error('Error al guardar:', error);
@@ -41,11 +40,10 @@ app.post('/api/aceria/reportes', async (req, res) => {
     }
 });
 
-// 2. Obtener Historial (Tabla)
+// 2. Obtener Historial
 app.get('/api/aceria/reportes', async (req, res) => {
     try {
         const pool = await getConnection();
-        // Consulta con JOINs para mostrar nombres en lugar de IDs
         const result = await pool?.request().query(`
             SELECT TOP 50 
                 r.id, r.fecha_reporte as fecha, 
@@ -66,7 +64,7 @@ app.get('/api/aceria/reportes', async (req, res) => {
     }
 });
 
-// 3. Obtener Catálogo de Técnicos (Filtrado por Área)
+// 3. Obtener Catálogo de Técnicos
 app.get('/api/aceria/catalogos/tecnicos', async (req, res) => {
     try {
         const area = req.query.area || 'HF1';
@@ -87,7 +85,7 @@ app.get('/api/aceria/catalogos/tecnicos', async (req, res) => {
     }
 });
 
-// 4. Crear Nuevo Técnico (Botón +)
+// 4. Crear Nuevo Técnico
 app.post('/api/aceria/catalogos/tecnicos', async (req, res) => {
     try {
         const { nombre_completo, area_clave } = req.body;
@@ -109,12 +107,7 @@ app.post('/api/aceria/catalogos/tecnicos', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor Backend corriendo en http://localhost:${PORT}`);
-});
-
-// 5. Obtener Catálogo de Turnos (NUEVO)
+// 5. Obtener Catálogo de Turnos
 app.get('/api/aceria/catalogos/turnos', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -125,4 +118,9 @@ app.get('/api/aceria/catalogos/turnos', async (req, res) => {
     } catch (error: any) {
         res.status(500).send(error.message);
     }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor Backend corriendo en http://localhost:${PORT}`);
 });
