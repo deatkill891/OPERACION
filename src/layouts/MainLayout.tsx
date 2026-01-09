@@ -165,8 +165,8 @@ export const MainLayout = () => {
         </header>
 
         {/* CONTENIDO DE LA PÁGINA (Outlet) */}
-        <main className="flex-1 overflow-auto p-6 bg-slate-50/50">
-            <div className="max-w-7xl mx-auto animate-fadeIn">
+        <main className="flex-1 overflow-auto p-4 bg-slate-50/50"> {/* Reducido de p-6 a p-4 */}
+            <div className="w-full animate-fadeIn"> {/* Quitamos max-w-7xl */}
                 <Outlet />
             </div>
         </main>

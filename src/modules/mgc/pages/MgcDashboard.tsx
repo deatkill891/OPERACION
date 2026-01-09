@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   AppBar, Typography, Box, Container, Paper, Grid as Grid, 
-  LinearProgress, Button, Card, CardContent, Menu, MenuItem, ListItemText
+  LinearProgress, Button, Card, CardContent, Menu, MenuItem, ListItemText,
+  List, ListItem, Divider, Fade, useTheme
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
+//import ArrowLeftIcon from '@mui/icons-material/ArrowLeft'; 
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArticleIcon from '@mui/icons-material/Article';
 
+// --- IMPORTACIONES DE IMÁGENES LOCALES ---
 import logoDeacero from '../assets/deacero.png';
 import sgcd from '../assets/logo1.png';
-// import deasgcd from '../assets/Mision3.png'; // <-- YA NO SE USA ESTA IMAGEN
 import gestion from '../assets/gestion.jpg';
+import shingo from '../assets/shingo.png';
+import img1 from '../assets/carrousel/1.png';
+import img2 from '../assets/carrousel/2.png';
+import img3 from '../assets/carrousel/3.png';
+import img4 from '../assets/carrousel/4.png';
+
+// ==========================================
+// DATOS SIMULADOS (Carrusel y Noticias)
+// ==========================================
+
+const carouselImages = [
+    img1, 
+    img2, 
+    img3,
+    img4,
+];
+
+const simulatedNews = [
+    { id: 1, title: "Nueva certificación ISO 50001 obtenida en Planta Celaya", date: "09/01/2026", summary: "Reforzando nuestro compromiso con la eficiencia energética." },
+    { id: 2, title: "Récord de producción mensual superado en Laminación", date: "05/01/2026", summary: "Gracias al esfuerzo conjunto y las mejoras en el proceso." },
+    { id: 3, title: "Próxima auditoría de seguimiento programada", date: "28/12/2025", summary: "Preparativos para la visita de auditores externos el próximo mes." },
+    { id: 4, title: "Implementación de nuevas tecnologías de IA en Acería", date: "15/12/2025", summary: "Optimizando la detección temprana de defectos." },
+];
 
 interface MenuOption {
   label: string;
@@ -721,14 +747,18 @@ const kpiConfig: { id: number; title: string; value: string; trend: string; btnL
   },
 ];
 
+// ==========================================
+// ESTILOS (Styled Components usando THEME)
+// ==========================================
+
 const CategoryCard = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(3),
     textAlign: 'center',
-    color: theme.palette.text.primary,
+    color: theme.palette.primary.main, 
     fontWeight: 900,
     cursor: 'pointer',
-    border: '2px solid #001e3d', 
-    borderRadius: 8,
+    border: `2px solid ${theme.palette.primary.main}`,
+    borderRadius: (theme.shape.borderRadius as number) * 1.5, 
     height: '100%', 
     display: 'flex',
     alignItems: 'center',
@@ -744,8 +774,8 @@ const CategoryCard = styled(Paper)(({ theme }) => ({
 }));
 
 const NavBar = styled(Paper)(({ theme }) => ({
-  backgroundColor: '#001e3d', 
-  color: theme.palette.common.white,
+  backgroundColor: theme.palette.primary.main, // Usa Primary
+  color: theme.palette.primary.contrastText, // Color de texto automático para contraste (blanco)
   padding: 0,
   display: 'flex',
   justifyContent: 'space-between',
@@ -771,7 +801,7 @@ const CustomLinearProgress = styled(LinearProgress)(({ theme }) => ({
     borderRadius: 6,
     backgroundColor: 'rgba(255,255,255,0.2)',
     '& .MuiLinearProgress-bar': {
-      backgroundColor: theme.palette.secondary.main,
+      backgroundColor: theme.palette.secondary.main, // Usa Secondary (Naranja)
       borderRadius: 6,
     },
 }));
@@ -779,14 +809,14 @@ const CustomLinearProgress = styled(LinearProgress)(({ theme }) => ({
 const ActionButton = styled(Button)(({ theme }) => ({
     width: '100%',
     height: '80px',
-    textTransform: 'none',
+    textTransform: 'none', // Del theme (aunque aquí forzamos, el theme global ya lo tiene)
     fontWeight: 700,
     fontSize: '0.8rem',
     lineHeight: 1.2,
     padding: theme.spacing(1),
-    border: '2px solid #001e3d', 
-    borderRadius: 8, 
-    color: '#001e3d',
+    border: `2px solid ${theme.palette.primary.main}`, // Usa Primary
+    borderRadius: theme.shape.borderRadius, // Del theme (8px)
+    color: theme.palette.primary.main, // Usa Primary
     backgroundColor: 'white',
     marginTop: theme.spacing(1),
     display: 'flex',
@@ -795,11 +825,15 @@ const ActionButton = styled(Button)(({ theme }) => ({
     textAlign: 'center',
     whiteSpace: 'pre-line',
     '&:hover': {
-        backgroundColor: '#f5f5f5',
-        borderColor: theme.palette.secondary.main,
+        backgroundColor: '#f5f5f5', // O un color muy suave del theme
+        borderColor: theme.palette.secondary.main, // Usa Secondary
         color: theme.palette.secondary.main,
     }
 }));
+
+// ==========================================
+// COMPONENTES AUXILIARES
+// ==========================================
 
 interface KpiCardProps {
     title: string;
@@ -808,9 +842,13 @@ interface KpiCardProps {
 }
 
 const KpiCard = ({ title, value }: KpiCardProps) => {
+    const theme = useTheme(); // Hook para acceder a los colores dentro del componente funcional
+    
+    // Gráfica naranja (secondary)
     const graphPath = "M0,25 C20,5 40,35 60,15 C80,0 100,30 120,20";
+    
     return (
-        <Card elevation={0} sx={{ height: '100%', borderRadius: 2, border: '1px solid #eee', display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 1 }}>
+        <Card elevation={0} sx={{ height: '100%', border: '1px solid #eee', display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 1 }}>
             <CardContent sx={{ textAlign: 'center', p: 1, '&:last-child': { pb: 1 }, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <Typography variant="caption" color="textSecondary" fontWeight={700} sx={{ fontSize: '0.65rem', display: 'block', mb: 0.5, textTransform: 'uppercase' }}>
                     {title}
@@ -820,7 +858,7 @@ const KpiCard = ({ title, value }: KpiCardProps) => {
                 </Typography>
                 <Box sx={{ height: 25, display: 'flex', justifyContent: 'center', mt: 'auto' }}>
                     <svg width="80" height="25" viewBox="0 0 120 40" preserveAspectRatio="none">
-                        <path d={graphPath} fill="none" stroke="#FF6B00" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+                        <path d={graphPath} fill="none" stroke={theme.palette.secondary.main} strokeWidth="3" vectorEffect="non-scaling-stroke" />
                     </svg>
                 </Box>
             </CardContent>
@@ -829,6 +867,7 @@ const KpiCard = ({ title, value }: KpiCardProps) => {
 };
 
 const RecursiveMenuItem = ({ option, handleCloseAll }: { option: MenuOption, handleCloseAll: () => void }) => {
+    const theme = useTheme();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const open = Boolean(anchorEl);
 
@@ -869,7 +908,7 @@ const RecursiveMenuItem = ({ option, handleCloseAll }: { option: MenuOption, han
                         PaperProps={{
                             elevation: 4,
                             sx: { 
-                                border: '1px solid #FF6B00',
+                                border: `1px solid ${theme.palette.secondary.main}`, // Borde naranja del submenú
                                 borderRadius: 2,
                                 minWidth: 150,
                                 ml: 1,
@@ -900,6 +939,7 @@ const RecursiveMenuItem = ({ option, handleCloseAll }: { option: MenuOption, han
 };
 
 const DynamicMenuButton = ({ label, options }: { label: string, options: MenuOption[] }) => {
+    const theme = useTheme();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const open = Boolean(anchorEl);
 
@@ -924,7 +964,7 @@ const DynamicMenuButton = ({ label, options }: { label: string, options: MenuOpt
                 PaperProps={{
                     elevation: 4,
                     sx: { 
-                        border: '2px solid #001e3d',
+                        border: `2px solid ${theme.palette.primary.main}`, // Borde Azul del menú principal
                         borderRadius: 2,
                         mt: 0.5,
                         minWidth: 180,
@@ -945,11 +985,109 @@ const DynamicMenuButton = ({ label, options }: { label: string, options: MenuOpt
     );
 };
 
+// Componente de Carrusel
+const ImageCarousel = () => {
+    const [activeStep, setActiveStep] = useState(0);
+    const maxSteps = carouselImages.length;
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setActiveStep((prevActiveStep) => (prevActiveStep + 1) % maxSteps);
+        }, 5000); 
+
+        return () => {
+            clearInterval(timer);
+        };
+    }, [maxSteps]);
+
+    return (
+        <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', height: '100%', position: 'relative', bgcolor: '#eee' }}>
+             {carouselImages.map((step, index) => (
+                <Fade key={index} in={activeStep === index} timeout={1000}>
+                    <Box
+                        component="img"
+                        sx={{
+                            height: '100%',
+                            display: 'block',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            width: '100%',
+                            objectFit: 'cover',
+                            position: activeStep === index ? 'relative' : 'absolute',
+                            top: 0,
+                            left: 0,
+                        }}
+                        src={step}
+                        alt={`Carrusel ${index + 1}`}
+                    />
+                </Fade>
+            ))}
+        </Paper>
+    );
+}
+
+// Componente de Sección de Noticias
+const NewsSection = () => {
+    const theme = useTheme();
+
+    return (
+        <Paper elevation={0} sx={{ height: '100%', borderRadius: 2, border: '1px solid #eee', bgcolor: 'white', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: 2, borderBottom: `2px solid ${theme.palette.primary.main}`, bgcolor: '#f5f5f5', display: 'flex', alignItems: 'center' }}>
+                 <ArticleIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                <Typography variant="h6" fontWeight={800} color={theme.palette.primary.main}>
+                    Noticias Relevantes
+                </Typography>
+            </Box>
+            <List sx={{ flex: 1, overflowY: 'auto', p: 0 }}>
+                {simulatedNews.map((news, index) => (
+                    <React.Fragment key={news.id}>
+                        <ListItem alignItems="flex-start" sx={{ py: 1.5, '&:hover': { bgcolor: '#fafafa' } }}>
+                            <ListItemText
+                                primary={
+                                    <Typography variant="subtitle2" fontWeight={700} color={theme.palette.primary.main}>
+                                        {news.title}
+                                    </Typography>
+                                }
+                                secondary={
+                                    <React.Fragment>
+                                        <Typography
+                                            sx={{ display: 'block', mb: 0.5 }}
+                                            component="span"
+                                            variant="caption"
+                                            color="secondary" // Usará el color secondary del theme
+                                            fontWeight={600}
+                                        >
+                                            {news.date}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                             {news.summary}
+                                        </Typography>
+                                    </React.Fragment>
+                                }
+                            />
+                        </ListItem>
+                        {index < simulatedNews.length - 1 && <Divider component="li" />}
+                    </React.Fragment>
+                ))}
+            </List>
+        </Paper>
+    );
+}
+
+
+// ==========================================
+// COMPONENTE PRINCIPAL (MgcDashboard)
+// ==========================================
+
 export const MgcDashboard = () => {
+  const theme = useTheme(); // Obtenemos el theme para usarlo en estilos inline si hace falta
+
   return (
-    <Box sx={{ flexGrow: 1, backgroundColor: '#f8f9fa', minHeight: '100vh', pb: 4 }}>
+    // Usamos theme.palette.background.default en lugar de #f8f9fa
+    <Box sx={{ flexGrow: 1, backgroundColor: theme.palette.background.default, minHeight: '100vh', pb: 4 }}>
       
-      <AppBar position="static" elevation={0} sx={{ backgroundColor: '#001e3d', py: 1.5 }}>
+      {/* --- APP BAR SUPERIOR --- */}
+      <AppBar position="static" elevation={0} sx={{ backgroundColor: theme.palette.primary.main, py: 1.5 }}>
         <Container maxWidth="xl">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', width: '200px' }}>
@@ -960,13 +1098,13 @@ export const MgcDashboard = () => {
                         SISTEMA DE GESTIÓN DE CALIDAD
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: '600px' }}>
-                        <Typography variant="caption" color="white" sx={{ mr: 2, fontWeight: 700, opacity: 0.8 }}>
+                        <Typography variant="caption" color="inherit" sx={{ mr: 2, fontWeight: 700, opacity: 0.8 }}>
                             CUMPLIMIENTO GLOBAL SGC
                         </Typography>
                         <Box sx={{ flexGrow: 1, mr: 2 }}>
                             <CustomLinearProgress variant="determinate" value={88.5} />
                         </Box>
-                        <Typography variant="h6" color="white" fontWeight={900} sx={{ fontSize: '1rem' }}>
+                        <Typography variant="h6" color="inherit" fontWeight={900} sx={{ fontSize: '1rem' }}>
                             88.5%
                         </Typography>
                     </Box>
@@ -975,7 +1113,7 @@ export const MgcDashboard = () => {
                     <img src={sgcd} alt="SGCD" style={{ height: 30 }} />
                      <Button 
                         variant="contained" 
-                        color="secondary" 
+                        color="secondary" // Usará el Naranja del theme automáticamente
                         size="small"
                         endIcon={<ArrowDropDownIcon />} 
                         sx={{ borderRadius: 20, px: 2, py: 0.2, fontSize: '0.7rem', fontWeight: 'bold', minHeight: 0 }}
@@ -989,32 +1127,32 @@ export const MgcDashboard = () => {
 
       <Container maxWidth="xl" sx={{ mt: 3 }}>
           
+        {/* --- SECCIÓN DE MISIÓN --- */}
         <Paper elevation={1} sx={{ p: 3, mb: 0, borderRadius: 2, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
             <Grid container spacing={2} alignItems="center">
                 <Grid size={{ xs: 12, md: 2 }}>
-                    <Box sx={{ borderLeft: '4px solid #FF6B00', pl: 2 }}>
+                    <Box sx={{ borderLeft: `4px solid ${theme.palette.secondary.main}`, pl: 2 }}>
                         <Typography variant="h6" fontWeight={800} color="secondary" sx={{ lineHeight: 1 }}>Misión</Typography>
                         <Typography variant="body2" fontWeight={700} color="textPrimary">Gerencia Calidad</Typography>
                     </Box>
                 </Grid>
-                {/* SE MODIFICÓ EL TAMAÑO A MD: 10 Y SE QUITÓ ALIGN="CENTER" */}
                 <Grid size={{ xs: 12, md: 10 }}>
-                    <Typography variant="body2" sx={{ fontStyle: 'italic', fontSize: '0.95rem', lineHeight: 1.6, color: '#555' }}>
+                    <Typography variant="body2" sx={{ fontStyle: 'italic', fontSize: '0.95rem', lineHeight: 1.6, color: 'text.secondary' }}>
                         Promover una cultura de <b>productividad</b> a través de la interdependencia, que nos permita incrementar la <b>rentabilidad</b> maximizando la capacidad de los procesos, siendo ágiles y flexibles a las necesidades en los cambios de mercado, ofreciendo desarrollos, servicios y soluciones integrales soportados por un <b>sistema de manufactura integrado</b>, que asegure tanto la perdurabilidad como el <b>mejoramiento continuo</b> en un ambiente de trabajo sano y seguro.
                     </Typography>
                 </Grid>
-                {/* SE ELIMINÓ EL GRID DE LA IMAGEN QUE ESTABA AQUÍ */}
             </Grid>
         </Paper>
 
+        {/* --- BARRA DE NAVEGACIÓN --- */}
         <NavBar elevation={0}>
             <NavItem>PLANEACIÓN</NavItem>
             <NavItem>OPERACIÓN</NavItem>
             <NavItem>MEJORA CONTINUA</NavItem>
         </NavBar>
 
+        {/* --- FILA SUPERIOR: CARDS Y BOTONES DE MENÚ --- */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-            
             {kpiConfig.map((item) => (
                 <Grid key={item.id} size={{ xs: 6, md: 2 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -1032,10 +1170,10 @@ export const MgcDashboard = () => {
                     </Box>
                 </Grid>
             ))}
-
         </Grid>
 
-        <Grid container spacing={2} sx={{ height: '450px' }}> 
+        {/* --- FILA MEDIO: CATEGORÍAS, TÍTULO KPI Y DIAGRAMA --- */}
+        <Grid container spacing={2} sx={{ height: '450px', mb: 8 }}> 
             <Grid size={{ xs: 12, md: 2 }} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ flex: 1 }}><CategoryCard>PERSONAS</CategoryCard></Box>
                 <Box sx={{ flex: 1 }}><CategoryCard>PROCESO</CategoryCard></Box>
@@ -1043,7 +1181,7 @@ export const MgcDashboard = () => {
             </Grid>
 
             <Grid size={{ xs: 12, md: 3 }}>
-                <Paper elevation={0} sx={{ height: '100%', bgcolor: '#001e3d', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                <Paper elevation={0} sx={{ height: '100%', bgcolor: theme.palette.primary.main, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                     <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: 2 }}>
                         KPIS
                     </Typography>
@@ -1061,6 +1199,27 @@ export const MgcDashboard = () => {
                     </Box>
                 </Paper>
             </Grid>
+        </Grid>
+
+        {/* --- NUEVA SECCIÓN 1: IMAGEN DE DIAGRAMA CENTRADA --- */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4, mt: 4 }}>
+            <Paper elevation={2} sx={{ p: 2, borderRadius: 2, maxWidth: '90%', display: 'flex', justifyContent: 'center', bgcolor: 'white' }}>
+                 <img 
+                    src={shingo} 
+                    alt="Diagrama Centrado" 
+                    style={{ maxWidth: '100%', height: 'auto', maxHeight: '600px', objectFit: 'contain' }}
+                />
+            </Paper>
+        </Box>
+
+        {/* --- NUEVA SECCIÓN 2: CARRUSEL (IZQ) Y NOTICIAS (DER) --- */}
+        <Grid container spacing={3} sx={{ height: '400px' }}>
+             <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%' }}>
+                <ImageCarousel />
+             </Grid>
+             <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%' }}>
+                <NewsSection />
+             </Grid>
         </Grid>
 
       </Container>
