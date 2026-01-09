@@ -945,7 +945,7 @@ const DynamicMenuButton = ({ label, options }: { label: string, options: MenuOpt
     );
 };
 
-export const Dashboard = () => {
+export const MgcDashboard = () => {
   return (
     <Box sx={{ flexGrow: 1, backgroundColor: '#f8f9fa', minHeight: '100vh', pb: 4 }}>
       
